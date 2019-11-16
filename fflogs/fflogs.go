@@ -1,0 +1,6 @@
+package fflogs
+
+func checkNewContent() {
+
+}
+
