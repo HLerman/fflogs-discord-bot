@@ -24,7 +24,7 @@ func init() {
 }
 
 func main() {
-	dg, err := discordgo.New("Bot " + viper.GetString("token"))
+	dg, err := discordgo.New("Bot " + viper.GetString("discordToken"))
 	if err != nil {
 		log.Fatal("error creating Discord session,", err)
 	}

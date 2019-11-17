@@ -5,6 +5,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/hlerman/fflogs-discord-bot/fflogs"
 	"github.com/hlerman/fflogs-discord-bot/lodestone"
 	log "github.com/sirupsen/logrus"
 )
@@ -117,7 +118,13 @@ func saveCharacter(user string, id int) (string, string, error) {
 		return "", "", err
 	}
 
-	/*db, err := sql.Open("mysql", "root:@/fflogs-discord-bot")
+	_, err = fflogs.GetLastsParsesForCharacter(name, server, "EU")
+	if err != nil {
+		log.Warn(err)
+		return "", "", err
+	}
+
+	db, err := sql.Open("mysql", "root:@/fflogs-discord-bot")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -135,11 +142,11 @@ func saveCharacter(user string, id int) (string, string, error) {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(id, , user)
+	_, err = stmt.Exec(id, 0, user)
 	if err != nil {
 		log.Warn(err)
 		return "", "", err
-	}*/
+	}
 
 	return name, server, nil
 }
