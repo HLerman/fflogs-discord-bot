@@ -36,14 +36,14 @@ func AddCharacter(m *discordgo.MessageCreate, s *discordgo.Session, characterID 
 
 	// add Character
 	if isCharacterAlreadyExist(characterID) == true {
-		s.ChannelMessageSend(m.ChannelID, "Votre personnage est déjà suivi")
+		s.ChannelMessageSend(m.ChannelID, "Votre personnage est déjà suivi :thumbsup:")
 	} else {
 		name, server, err := saveCharacter(m.Author.ID, characterID)
 		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, "Oups, je n'arrive pas à ajouter votre personnage")
+			s.ChannelMessageSend(m.ChannelID, "Oups, je n'arrive pas à ajouter votre personnage :cry:. Peut être que l'id lodestone est erroné ou que le personnage n'existe pas dans FFLogs ?")
 			return
 		}
-		s.ChannelMessageSend(m.ChannelID, "Votre personnage "+name+" du serveur "+server+" a bien été enregistré")
+		s.ChannelMessageSend(m.ChannelID, "Votre personnage "+name+" du serveur "+server+" a bien été enregistré :rocket:")
 	}
 }
 

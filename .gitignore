@@ -1,0 +1,5 @@
+*.exe
+*.exe~
+vendor
+/vendor/
+settings.json
