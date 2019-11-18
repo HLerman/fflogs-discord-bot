@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"math"
@@ -15,20 +14,28 @@ import (
 	"strings"
 
 	"github.com/hlerman/fflogs-discord-bot/lodestone"
-	"github.com/hlerman/fflogs-discord-bot/users"
 	"github.com/spf13/viper"
 )
 
-func checkNewContent() {
-	name := "Hexa Shell"
-	fmt.Println(url.PathEscape(name))
+func Connect() *sql.DB {
+	db, err := sql.Open("mysql", "root:@/fflogs-discord-bot")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = db.Ping()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return db
 }
 
 func ReportIsAlreadyInDatabase(id string) bool {
-	db := users.Connect()
+	db := Connect()
 	defer db.Close()
 
-	var reportID int
+	var reportID string
 	err := db.QueryRow("SELECT report_id FROM reports WHERE report_id = ?", id).Scan(&reportID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -170,61 +177,71 @@ func getLastParseForCharacter(name string, server string, region string) (Parse,
 	return parse, nil
 }
 
-func GetLastDpsMeter(characterID int) (DPSMeter, error) {
+func GetLastDpsMeter(characterID int) (DPSMeters, error) {
 	// Get Name and Server From Character
 	name, server, err := lodestone.IsCharacterIDExistInLodestone(characterID)
 
 	if err != nil {
-		return DPSMeter{}, err
+		return DPSMeters{}, err
 	}
 
 	// Get last fight for character (reportID)
 	parse, err := getLastParseForCharacter(name, server, "EU")
 	if err != nil {
-		return DPSMeter{}, err
+		return DPSMeters{}, err
 	}
+
+	date := parse.StartTime / 1000
 
 	// Get list of fight from reportID
 	fights, reportID, err := getReportFights(parse.ReportID)
 	if err != nil {
-		return DPSMeter{}, err
+		return DPSMeters{}, err
 	}
 
 	// Get list of boss fights from fights
 	bossFights, reportID, err := getBossFights(fights, reportID)
 	if err != nil {
-		return DPSMeter{}, err
+		return DPSMeters{}, err
 	}
 
-	// Loop all the boss fights -- for debug, we take the fist fight :)
+	// Loop all the boss fights -- for debug, we take the first fight :)
+	var dpsMeters DPSMeters
+	dpsMeters.Date = date
+
 	var boss Boss
 	for i := range bossFights {
-		if i == 0 {
-			boss = bossFights[i]
+		boss = bossFights[i]
+
+		// Oups, get the ZoneName and Name
+		bossName := boss.Name
+		zoneName := boss.ZoneName
+
+		// Get information from the boss fight
+		tables, err := getReportTables(reportID, boss.StartTime, boss.EndTime)
+		if err != nil {
+			return DPSMeters{}, err
 		}
+
+		// Finaly, get dps meter
+		dpsMeter, err := getFightInformationFromTables(tables, bossName, zoneName)
+		if err != nil {
+			return DPSMeters{}, err
+		}
+
+		dpsMeter.Name = bossName
+		dpsMeter.ZoneName = zoneName
+		dpsMeter.ReportID = reportID
+
+		dpsMeters.Meters = append(dpsMeters.Meters, dpsMeter)
 	}
 
-	// Oups, get the ZoneName and Name
-	bossName := boss.Name
-	zoneName := boss.ZoneName
+	return dpsMeters, nil
+}
 
-	// Get information from the boss fight
-	tables, err := getReportTables(reportID, boss.StartTime, boss.EndTime)
-	if err != nil {
-		return DPSMeter{}, err
-	}
-
-	// Finaly, get dps meter
-	dpsMeter, err := getFightInformationFromTables(tables, bossName, zoneName)
-	if err != nil {
-		return DPSMeter{}, err
-	}
-
-	dpsMeter.Name = bossName
-	dpsMeter.ZoneName = zoneName
-	dpsMeter.ReportID = reportID
-
-	return dpsMeter, nil
+type DPSMeters struct {
+	Date   int64
+	Meters []DPSMeter
 }
 
 type DPSMeter struct {

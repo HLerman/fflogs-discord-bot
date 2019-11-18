@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	_ "github.com/go-sql-driver/mysql"
@@ -138,7 +139,7 @@ func saveCharacter(user string, id int) (string, string, error) {
 }
 
 // BETA
-func Check(m *discordgo.MessageCreate, s *discordgo.Session) {
+func Check(s *discordgo.Session, channelID string) {
 	// listUsers()
 	users, err := listUsers()
 	if err != nil {
@@ -148,7 +149,8 @@ func Check(m *discordgo.MessageCreate, s *discordgo.Session) {
 	// Loop
 	for i := range users {
 		// isThisUserStillInThisDiscord(id)
-		u, err := isThisUserStillInThisDiscord(users[i].DiscordID, m, s)
+		//u, err := isThisUserStillInThisDiscord(users[i].DiscordID, m, s)
+		u, err := isThisUserStillInThisDiscord(users[i].DiscordID, s)
 		if err != nil {
 			log.Warn(err)
 		}
@@ -177,32 +179,41 @@ func Check(m *discordgo.MessageCreate, s *discordgo.Session) {
 
 		for j := range characters {
 			// Check the last report of this character
-			dpsMeter, err := fflogs.GetLastDpsMeter(characters[j].LodestoneID)
+			dpsMeters, err := fflogs.GetLastDpsMeter(characters[j].LodestoneID)
 			if err != nil {
 				log.Fatal(err)
 			}
 
 			// Check if we already send it
 			// if yes, next character
-			if fflogs.ReportIsAlreadyInDatabase(dpsMeter.ReportID) == true {
+			if fflogs.ReportIsAlreadyInDatabase(dpsMeters.Meters[0].ReportID) == true {
 				continue
 			}
 
-			// Send to Discord
-			var message string
+			for k := range dpsMeters.Meters {
 
-			message = "**" + dpsMeter.Name + " (" + dpsMeter.ZoneName + ")**\n"
-			for _, dps := range dpsMeter.Dps {
-				minutes := fmt.Sprintf("%02d", dps.FightLength.Minute)
-				seconds := fmt.Sprintf("%02d", dps.FightLength.Second)
+				// Send to Discord
+				var message string
 
-				message = message + "**" + dps.Name + "** * " + dps.Type + " * " + strconv.Itoa(dps.ADPS) + " dps * [" + minutes + ":" + seconds + "]\n"
+				// Get date from Unix time
+				t := time.Unix(dpsMeters.Date, 0)
+				t.Format("2006-01-02 15:04:05")
+
+				message = "**" + dpsMeters.Meters[k].Name + " (" + dpsMeters.Meters[k].ZoneName + ")** " + t.UTC().String() + "\n"
+				for _, dps := range dpsMeters.Meters[k].Dps {
+					minutes := fmt.Sprintf("%02d", dps.FightLength.Minute)
+					seconds := fmt.Sprintf("%02d", dps.FightLength.Second)
+
+					message = message + "**" + dps.Name + "** * " + dps.Type + " * " + strconv.Itoa(dps.ADPS) + " dps * [" + minutes + ":" + seconds + "]\n"
+				}
+
+				message = message + "\n\n"
+
+				s.ChannelMessageSend(channelID, message)
 			}
 
-			s.ChannelMessageSend(m.ChannelID, message)
-
 			// Register id report in db
-			err := fflogs.SaveReportInDb(dpsMeter.ReportID)
+			err = fflogs.SaveReportInDb(dpsMeters.Meters[0].ReportID)
 			if err != nil {
 				log.Warn(err)
 			}
@@ -217,8 +228,9 @@ func Check(m *discordgo.MessageCreate, s *discordgo.Session) {
 	// Fin loop users
 }
 
-func isThisUserStillInThisDiscord(id string, m *discordgo.MessageCreate, s *discordgo.Session) (bool, error) {
-	members, err := s.GuildMembers(m.GuildID, "0", 1000)
+//func isThisUserStillInThisDiscord(id string, m *discordgo.MessageCreate, s *discordgo.Session) (bool, error) {
+func isThisUserStillInThisDiscord(id string, s *discordgo.Session) (bool, error) {
+	/*members, err := s.GuildMembers(m.GuildID, "0", 1000)
 	if err != nil {
 		return false, err
 	}
@@ -230,7 +242,8 @@ func isThisUserStillInThisDiscord(id string, m *discordgo.MessageCreate, s *disc
 
 	}
 
-	return false, nil
+	return false, nil*/
+	return true, nil
 }
 
 type User struct {
@@ -340,7 +353,7 @@ func removeUser(discordID string) error {
 	return nil
 }
 
-// BETA
+/* BETA
 func Watch(m *discordgo.MessageCreate, s *discordgo.Session) {
 	if isUserAlreadyExist(m.Author.ID) == true {
 		dpsMeter, err := fflogs.GetLastDpsMeter(387383)
@@ -360,8 +373,8 @@ func Watch(m *discordgo.MessageCreate, s *discordgo.Session) {
 
 		s.ChannelMessageSend(m.ChannelID, message)
 		/***Eden Prime (Eden's Gate)**
-		- **Hexa Shell** * DRK * 2589.20 dps * **85%** * [10:07]*/
-		s.ChannelMessageSendEmbed(m.ChannelID)
+		- **Hexa Shell** * DRK * 2589.20 dps * **85%** * [10:07]
+		//s.ChannelMessageSendEmbed(m.ChannelID)
 		fmt.Println(message)
 	}
-}
+}*/

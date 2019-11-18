@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/hlerman/fflogs-discord-bot/users"
@@ -31,6 +32,8 @@ func main() {
 
 	// Register the messageCreate func as a callback for MessageCreate events.
 	dg.AddHandler(messageCreate)
+
+	go check(dg)
 
 	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
@@ -74,12 +77,25 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		users.AddCharacter(m, s, id)
 	}
 
-	//TEST NEW FUNCTION
+	/*TEST NEW FUNCTION
 	if m.Content == "!watch" {
 		users.Watch(m, s)
+	}*/
+
+	//if m.Content == "!test" {
+	//	users.Check(m, s, viper.GetString("channelID"))
+	//}
+
+	if m.Content == "!chan" {
+		s.ChannelMessageSend(m.ChannelID, "Channel id : "+m.ChannelID)
 	}
 
-	if m.Content == "!test" {
-		users.Check(m, s)
+	//go check(s, m)
+}
+
+func check(s *discordgo.Session) {
+	for {
+		users.Check(s, viper.GetString("channelID"))
+		time.Sleep(10000 * time.Millisecond)
 	}
 }

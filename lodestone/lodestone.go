@@ -24,7 +24,7 @@ func IsCharacterIDExistInLodestone(id int) (string, string, error) {
 
 	html, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	var data XIVApi
@@ -216,4 +216,8 @@ type XIVApi struct {
 	Friends            interface{} `json:"Friends"`
 	FriendsPublic      interface{} `json:"FriendsPublic"`
 	PvPTeam            interface{} `json:"PvPTeam"`
+}
+
+func getAllCharacters() {
+
 }
