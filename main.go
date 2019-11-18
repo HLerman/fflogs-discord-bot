@@ -78,4 +78,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Content == "!watch" {
 		users.Watch(m, s)
 	}
+
+	if m.Content == "!test" {
+		users.Check(m, s)
+	}
 }

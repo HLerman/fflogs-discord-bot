@@ -1,10 +1,12 @@
 package fflogs
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math"
 	"net/http"
 	"net/url"
@@ -13,12 +15,48 @@ import (
 	"strings"
 
 	"github.com/hlerman/fflogs-discord-bot/lodestone"
+	"github.com/hlerman/fflogs-discord-bot/users"
 	"github.com/spf13/viper"
 )
 
 func checkNewContent() {
 	name := "Hexa Shell"
 	fmt.Println(url.PathEscape(name))
+}
+
+func ReportIsAlreadyInDatabase(id string) bool {
+	db := users.Connect()
+	defer db.Close()
+
+	var reportID int
+	err := db.QueryRow("SELECT report_id FROM reports WHERE report_id = ?", id).Scan(&reportID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false
+		} else {
+			log.Fatal(err)
+		}
+	}
+
+	return true
+}
+
+func SaveReportInDb(id string) error {
+	db := Connect()
+	defer db.Close()
+
+	stmt, err := db.Prepare("INSERT INTO reports (report_id) VALUES( ? )")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(id)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type Date struct {
@@ -184,6 +222,7 @@ func GetLastDpsMeter(characterID int) (DPSMeter, error) {
 
 	dpsMeter.Name = bossName
 	dpsMeter.ZoneName = zoneName
+	dpsMeter.ReportID = reportID
 
 	return dpsMeter, nil
 }
@@ -192,6 +231,7 @@ type DPSMeter struct {
 	Dps      []DPS
 	Name     string
 	ZoneName string
+	ReportID string
 }
 
 type DPS struct {
