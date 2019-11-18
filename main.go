@@ -67,13 +67,15 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		s.ChannelMessageSend(m.ChannelID, "Ping!")
 	}
 
-	//if m.Content[:13] == "!addCharacter" {
 	r := regexp.MustCompile("^!addCharacter ([0-9]+)$")
 	match := r.FindStringSubmatch(m.Content)
 	if len(match) > 0 {
-		//DEBUG : s.ChannelMessageSend(.ChannelID, match[1])
 		id, _ := strconv.Atoi(match[1])
 		users.AddCharacter(m, s, id)
 	}
-	//}
+
+	//TEST NEW FUNCTION
+	if m.Content == "!watch" {
+		users.Watch(m, s)
+	}
 }

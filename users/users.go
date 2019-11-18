@@ -2,6 +2,8 @@ package users
 
 import (
 	"database/sql"
+	"fmt"
+	"strconv"
 
 	"github.com/bwmarrin/discordgo"
 	_ "github.com/go-sql-driver/mysql"
@@ -149,4 +151,29 @@ func saveCharacter(user string, id int) (string, string, error) {
 	}
 
 	return name, server, nil
+}
+
+// BETA
+func Watch(m *discordgo.MessageCreate, s *discordgo.Session) {
+	if isUserAlreadyExist(m.Author.ID) == true {
+		dpsMeter, err := fflogs.GetLastDpsMeter(387383)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		var message string
+
+		message = "**" + dpsMeter.Name + " (" + dpsMeter.ZoneName + ")**\n"
+		for _, dps := range dpsMeter.Dps {
+			minutes := fmt.Sprintf("%02d", dps.FightLength.Minute)
+			seconds := fmt.Sprintf("%02d", dps.FightLength.Second)
+
+			message = message + "**" + dps.Name + "** * " + dps.Type + " * " + strconv.Itoa(dps.ADPS) + " dps * [" + minutes + ":" + seconds + "]\n"
+		}
+
+		s.ChannelMessageSend(m.ChannelID, message)
+		/***Eden Prime (Eden's Gate)**
+		- **Hexa Shell** * DRK * 2589.20 dps * **85%** * [10:07]*/
+		fmt.Println(message)
+	}
 }

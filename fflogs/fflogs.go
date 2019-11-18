@@ -8,15 +8,32 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/hlerman/fflogs-discord-bot/lodestone"
 	"github.com/spf13/viper"
 )
 
 func checkNewContent() {
 	name := "Hexa Shell"
 	fmt.Println(url.PathEscape(name))
+}
+
+type Date struct {
+	Second int
+	Minute int
+	Hour   int
+}
+
+func convertSecondToDate(s int) Date {
+	hours := int(math.Floor(float64(s) / 60 / 60))
+	seconds := s % (60 * 60)
+	minutes := int(math.Floor(float64(seconds) / 60))
+	seconds = s % 60
+
+	return Date{Second: seconds, Minute: minutes, Hour: hours}
 }
 
 func getZones() (Zones, error) {
@@ -115,30 +132,92 @@ func getLastParseForCharacter(name string, server string, region string) (Parse,
 	return parse, nil
 }
 
-type DPSMeter []DPS
+func GetLastDpsMeter(characterID int) (DPSMeter, error) {
+	// Get Name and Server From Character
+	name, server, err := lodestone.IsCharacterIDExistInLodestone(characterID)
+
+	if err != nil {
+		return DPSMeter{}, err
+	}
+
+	// Get last fight for character (reportID)
+	parse, err := getLastParseForCharacter(name, server, "EU")
+	if err != nil {
+		return DPSMeter{}, err
+	}
+
+	// Get list of fight from reportID
+	fights, reportID, err := getReportFights(parse.ReportID)
+	if err != nil {
+		return DPSMeter{}, err
+	}
+
+	// Get list of boss fights from fights
+	bossFights, reportID, err := getBossFights(fights, reportID)
+	if err != nil {
+		return DPSMeter{}, err
+	}
+
+	// Loop all the boss fights -- for debug, we take the fist fight :)
+	var boss Boss
+	for i := range bossFights {
+		if i == 0 {
+			boss = bossFights[i]
+		}
+	}
+
+	// Oups, get the ZoneName and Name
+	bossName := boss.Name
+	zoneName := boss.ZoneName
+
+	// Get information from the boss fight
+	tables, err := getReportTables(reportID, boss.StartTime, boss.EndTime)
+	if err != nil {
+		return DPSMeter{}, err
+	}
+
+	// Finaly, get dps meter
+	dpsMeter, err := getFightInformationFromTables(tables, bossName, zoneName)
+	if err != nil {
+		return DPSMeter{}, err
+	}
+
+	dpsMeter.Name = bossName
+	dpsMeter.ZoneName = zoneName
+
+	return dpsMeter, nil
+}
+
+type DPSMeter struct {
+	Dps      []DPS
+	Name     string
+	ZoneName string
+}
 
 type DPS struct {
 	Name        string
 	Type        string
-	RDPS        int64
-	ADPS        int64
-	FightLength int
+	RDPS        int
+	ADPS        int
+	FightLength Date
 }
 
-func getFightInformationFromTables(tables Tables) (DPSMeter, error) {
-	var dpsMeter DPSMeter
+func getFightInformationFromTables(tables Tables, bossName string, zoneName string) (DPSMeter, error) {
+	dpsMeter := DPSMeter{Name: bossName, ZoneName: zoneName, Dps: []DPS{}}
 
 	for i := range tables.Entries {
 		var dps DPS
 
 		dps.Name = tables.Entries[i].Name
 		dps.Type = tables.Entries[i].Type
-		dps.ADPS = int64(math.RoundToEven(tables.Entries[i].TotalADPS)) / (int64(tables.TotalTime) / 1000)
-		dps.RDPS = int64(math.RoundToEven(tables.Entries[i].TotalRDPS)) / (int64(tables.TotalTime) / 1000)
-		dps.FightLength = tables.TotalTime / 1000
+		dps.ADPS = int(math.RoundToEven(tables.Entries[i].TotalADPS)) / (int(tables.TotalTime) / 1000)
+		dps.RDPS = int(math.RoundToEven(tables.Entries[i].TotalRDPS)) / (int(tables.TotalTime) / 1000)
+		dps.FightLength = convertSecondToDate(tables.TotalTime / 1000)
 
-		dpsMeter = append(dpsMeter, dps)
+		dpsMeter.Dps = append(dpsMeter.Dps, dps)
 	}
+
+	sort.Slice(dpsMeter.Dps, func(i, j int) bool { return dpsMeter.Dps[i].ADPS > dpsMeter.Dps[j].ADPS })
 
 	return dpsMeter, nil
 }
